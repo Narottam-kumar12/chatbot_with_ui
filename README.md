@@ -1,5 +1,34 @@
 # 🌹 Lumina — AI Chatbot with Tools & Persistent Memory
 
+<!-- Tech Stack Badges -->
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.12-4ade80?style=for-the-badge&logo=python&logoColor=white&labelColor=0f2a1e"/>
+  <img src="https://img.shields.io/badge/LangGraph-Agent-4ade80?style=for-the-badge&logo=chainlink&logoColor=white&labelColor=0f2a1e"/>
+  <img src="https://img.shields.io/badge/Gemini-2.5_Flash-60a5fa?style=for-the-badge&logo=google&logoColor=white&labelColor=0f1a2e"/>
+  <img src="https://img.shields.io/badge/Streamlit-Frontend-f87171?style=for-the-badge&logo=streamlit&logoColor=white&labelColor=2a1210"/>
+  <img src="https://img.shields.io/badge/SQLite-Persistent_Memory-7dd3fc?style=for-the-badge&logo=sqlite&logoColor=white&labelColor=0f1520"/>
+  <img src="https://img.shields.io/badge/LangSmith-Tracing-c084fc?style=for-the-badge&logo=langchain&logoColor=white&labelColor=1a0f25"/>
+</p>
+
+<!-- Tool Badges -->
+<p align="center">
+  <img src="https://img.shields.io/badge/🧮_Calculator-Pure_Python-facc15?style=flat-square&labelColor=1a1a0f"/>
+  <img src="https://img.shields.io/badge/🔍_Web_Search-DuckDuckGo_Free-22d3ee?style=flat-square&labelColor=0f1a1a"/>
+  <img src="https://img.shields.io/badge/📰_News_Search-DuckDuckGo_Free-e879f9?style=flat-square&labelColor=1a0f1a"/>
+  <img src="https://img.shields.io/badge/📈_Stock_Price-Yahoo_Finance_Free-4ade80?style=flat-square&labelColor=0f1a0f"/>
+  <img src="https://img.shields.io/badge/🌤️_Weather-Open_Meteo_Free-7dd3fc?style=flat-square&labelColor=0f1a2a"/>
+</p>
+
+<!-- Status Badges -->
+<p align="center">
+  <img src="https://img.shields.io/badge/License-MIT-c9748a?style=flat-square"/>
+  <img src="https://img.shields.io/badge/Status-Production_Ready-4ade80?style=flat-square"/>
+  <img src="https://img.shields.io/badge/API_Keys_Required-1_(Gemini_only)-c9a96e?style=flat-square"/>
+  <img src="https://img.shields.io/badge/Extra_Tool_API_Keys-0_(all_free)-4ade80?style=flat-square"/>
+</p>
+
+---
+
 > A production-grade conversational AI built with **LangGraph**, **Gemini 2.5 Flash**, and **Streamlit** — featuring real-time tool use, SQLite-backed persistent memory, per-thread LangSmith tracing, and a romantic dark UI.
 
 ---
@@ -226,7 +255,7 @@ User: "Search for AAPL news and also tell me current price"
 
 | Layer | Technology |
 |-------|-----------|
-| LLM | Google Gemini 2.0 Flash |
+| LLM | Google Gemini 2.5 Flash |
 | Agent Framework | LangGraph |
 | Memory / Persistence | LangGraph `SqliteSaver` |
 | Observability | LangSmith |
