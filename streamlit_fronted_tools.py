@@ -4,9 +4,8 @@ from datetime import datetime
 
 import streamlit as st
 from langchain_core.messages import HumanMessage
-from langsmith import Client
 
-from langgraph_backend_database import (
+from langgraph_backend_tools import (
     chatbot,
     save_thread_meta,
     update_thread_title,
@@ -331,22 +330,28 @@ def get_thread_title() -> str:
     active = threads.get(st.session_state.active_thread, {})
     return active.get("title", "New conversation")
 
+
 def get_config() -> dict:
     tid   = st.session_state.active_thread
     title = get_thread_title()
     return {
-    "configurable": {"thread_id": "abc-123"},
-    "run_name": "[Python kaise seekhein]",     # ← Thread title as run name
-    "tags": [
-        "thread:abc-123",                       # ← Thread ID tag
-        "title:Python kaise seekhein",          # ← Title tag
-        "lumina-chatbot",                       # ← Project tag
-    ],
-    "metadata": {
-        "thread_id":    "abc-123",
-        "thread_title": "Python kaise seekhein"
+        "configurable": {
+            "thread_id": tid,
+        },
+        # ── LangSmith tracing metadata ─────────────────────────────
+        # Each thread appears as a separate named run in LangSmith.
+        # Filter by tag "thread:<id>" to isolate any conversation.
+        "run_name": f"[{title}]",        # shown as run title in LangSmith
+        "tags": [
+            f"thread:{tid}",             # filter by exact thread ID
+            f"title:{title}",            # filter by thread title
+            "lumina-chatbot",            # global project tag
+        ],
+        "metadata": {
+            "thread_id":    tid,
+            "thread_title": title,
+        },
     }
-}
 
 
 def auto_title(text: str) -> str:
@@ -381,10 +386,22 @@ def get_bot_response(user_input: str) -> str:
         {"messages": [HumanMessage(content=user_input)]},
         config=get_config(),
     )
-    return response["messages"][-1].content
+    content = response["messages"][-1].content
+    # Gemini sometimes returns a list of content blocks after tool calls
+    # Extract plain text from whatever format comes back
+    if isinstance(content, list):
+        text = " ".join(
+            part["text"] for part in content
+            if isinstance(part, dict) and part.get("type") == "text"
+        ).strip()
+        return text if text else "I couldn't generate a response."
+    return str(content) if content else "I couldn't generate a response."
 
 
 def stream_response(response_text: str) -> None:
+    # Safety: ensure we always have a plain string
+    if not isinstance(response_text, str):
+        response_text = str(response_text)
     placeholder = st.empty()
     streamed = ""
     for word in response_text.split():

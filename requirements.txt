@@ -1,29 +1,19 @@
-langchain
-langchain-core
-langchain-community
-langchain-openai
-langgraph
-langgraph-checkpoint-sqlite
+# ── Core framework ────────────────────────────────────────────────────────────
+streamlit>=1.35.0
 
-streamlit
+# ── LangChain / LangGraph ─────────────────────────────────────────────────────
+langgraph>=0.2.0
+langgraph-checkpoint-sqlite>=1.0.0
+langchain-core>=0.2.0
+langchain-google-genai>=1.0.0
 
-openai
-groq
+# ── LangSmith tracing ─────────────────────────────────────────────────────────
+langsmith>=0.1.0
 
-python-dotenv
+# ── Tools ─────────────────────────────────────────────────────────────────────
+duckduckgo-search>=6.1.0       # web & news search (no API key needed)
+yfinance>=0.2.40               # stock prices via Yahoo Finance (no API key needed)
+requests>=2.31.0               # weather via Open-Meteo (no API key needed)
 
-pydantic
-tiktoken
-
-requests
-aiohttp
-
-pandas
-numpy
-
-faiss-cpu
-
-pypdf
-unstructured
-
-rich
+# ── Utilities ─────────────────────────────────────────────────────────────────
+python-dotenv>=1.0.0
