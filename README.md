@@ -1,233 +1,273 @@
-# AI Chatbot with LangGraph & Gemini
+# 🌹 Lumina — AI Chatbot with Tools & Persistent Memory
 
-A production-ready conversational AI chatbot built using **LangGraph**, **Google Gemini**, and **LangChain**, featuring persistent conversation memory and state management.
+> A production-grade conversational AI built with **LangGraph**, **Gemini 2.5 Flash**, and **Streamlit** — featuring real-time tool use, SQLite-backed persistent memory, per-thread LangSmith tracing, and a romantic dark UI.
+
+---
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Architecture](#architecture)
+- [Features](#features)
+- [Project Structure](#project-structure)
+- [Tools](#tools)
+- [Getting Started](#getting-started)
+- [Configuration](#configuration)
+- [LangSmith Tracing](#langsmith-tracing)
+- [Graph Flow](#graph-flow)
+- [Tech Stack](#tech-stack)
+- [Known Issues & Fixes](#known-issues--fixes)
+
+---
 
 ## Overview
 
-This project demonstrates how to build a stateful AI chatbot using LangGraph's graph-based workflow architecture. The chatbot maintains conversation context across interactions and leverages Google's Gemini models for natural language understanding and generation.
-
-### Key Features
-
-* Stateful conversations using LangGraph
-* Google Gemini integration
-* Conversation memory with checkpointing
-* Modular graph-based architecture
-* Environment-based configuration
-* Extensible workflow design
-* Clean separation of state and business logic
+Lumina is a multi-turn AI chatbot that goes beyond simple Q&A. It uses a **ReAct (Reason + Act)** agent pattern via LangGraph — the LLM decides when to call tools, executes them, then synthesizes a final response. All conversations are persisted to **SQLite** so they survive server restarts. Each thread is independently traced on **LangSmith** for full observability.
 
 ---
 
 ## Architecture
 
-```text
-┌─────────────┐
-│ User Input  │
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│ Chat State  │
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│ Chat Node   │
-│ (Gemini)    │
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│ Response    │
-└─────────────┘
 ```
-
-### Workflow
-
-1. User sends a message.
-2. Message is added to the graph state.
-3. Gemini processes the conversation history.
-4. Response is generated.
-5. Checkpointer stores the updated conversation state.
-6. Response is returned to the user.
+┌─────────────────────────────────────────────────────────────┐
+│                        Streamlit UI                         │
+│         (app.py — romantic dark theme, sidebar threads)     │
+└────────────────────────┬────────────────────────────────────┘
+                         │ HumanMessage
+                         ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   LangGraph Agent Graph                     │
+│                                                             │
+│   START → [ model node ] ──── has tool_calls? ──► [ tools ]│
+│                │                                      │     │
+│                │ No                                   │     │
+│                ▼                                      ▼     │
+│               END  ◄──────────────────────── back to model │
+└─────────────────────────────────────────────────────────────┘
+                         │
+          ┌──────────────┼──────────────┐
+          ▼              ▼              ▼
+   SqliteSaver     LangSmith       Gemini 2.0
+  (persistence)    (tracing)        (LLM)
+```
 
 ---
 
-## Tech Stack
+## Features
 
-* Python 3.10+
-* LangGraph
-* LangChain
-* Google Gemini API
-* Python Dotenv
+- **Multi-turn memory** — Full conversation history via LangGraph checkpoints stored in SQLite
+- **Thread management** — Create, switch, resume, and delete conversation threads from the sidebar
+- **Auto-titling** — Each thread is automatically titled from the first user message
+- **ReAct agent** — LLM decides when and which tool to call; supports multi-step tool chaining
+- **Real-time tools** — Calculator, web search, news, stock prices, weather (all free, no extra API keys)
+- **LangSmith tracing** — Every thread traced with `run_name`, `tags`, and `metadata` for isolation
+- **Streaming responses** — Word-by-word animated output with typing cursor
+- **Robust content handling** — Handles both `str` and `list` content from Gemini after tool calls
 
 ---
 
 ## Project Structure
 
-```text
-.
-├── chatbot.py
-├── .env
-├── requirements.txt
-├── README.md
-└── venv/
+```
+lumina-chatbot/
+│
+├── app.py                  # Streamlit frontend — UI, sidebar, chat flow
+├── langgraph_backend.py    # LangGraph agent graph, SQLite memory, thread helpers
+│
+├── tool_calculator.py      # 🧮 Safe math expression evaluator
+├── tool_search.py          # 🔍 DuckDuckGo web & news search
+├── tool_stock.py           # 📈 Yahoo Finance stock prices & history
+├── tool_weather.py         # 🌤️ Open-Meteo weather & forecasts
+│
+├── requirements.txt        # All dependencies
+├── .env.example            # Environment variable template
+├── chat_history.db         # SQLite DB (auto-created on first run)
+└── README.md
 ```
 
 ---
 
-## Installation
+## Tools
 
-### Clone Repository
+| Tool | Function | Data Source | API Key |
+|------|----------|-------------|---------|
+| 🧮 Calculator | Arithmetic, trig, sqrt, log, factorial | Python `math` module | ❌ None |
+| 🔍 Web Search | General knowledge, real-time web results | DuckDuckGo | ❌ None |
+| 📰 News Search | Latest news on any topic | DuckDuckGo News | ❌ None |
+| 📈 Stock Price | Current price, P/E, market cap, 52-week range | Yahoo Finance (`yfinance`) | ❌ None |
+| 📊 Stock History | Historical OHLCV data, % performance | Yahoo Finance (`yfinance`) | ❌ None |
+| 📉 Compare Stocks | Side-by-side multi-stock comparison | Yahoo Finance (`yfinance`) | ❌ None |
+| 🌤️ Current Weather | Temperature, humidity, wind, UV index | Open-Meteo + Nominatim | ❌ None |
+| 📅 Weather Forecast | 1–7 day daily forecast | Open-Meteo | ❌ None |
+| 🌍 Compare Weather | Multi-city weather comparison table | Open-Meteo | ❌ None |
+
+> **Only 2 API keys needed** for the entire project: Google Gemini and LangSmith (optional).
+
+---
+
+## Getting Started
+
+### 1. Clone the repository
 
 ```bash
-git clone <repository-url>
-cd chatbot-project
+git clone https://github.com/your-username/lumina-chatbot.git
+cd lumina-chatbot
 ```
 
-### Create Virtual Environment
-
-macOS/Linux
-
-```bash
-python3 -m venv myenv
-source myenv/bin/activate
-```
-
-Windows
+### 2. Create a virtual environment
 
 ```bash
 python -m venv myenv
-myenv\Scripts\activate
+source myenv/bin/activate        # macOS/Linux
+myenv\Scripts\activate           # Windows
 ```
 
-### Install Dependencies
+### 3. Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
----
-
-## Environment Variables
-
-Create a `.env` file in the project root.
-
-```env
-GOOGLE_API_KEY=your_google_api_key
-```
-
----
-
-## Running the Application
+### 4. Set up environment variables
 
 ```bash
-python chatbot.py
+cp .env.example .env
 ```
+
+Edit `.env` and fill in your keys (see [Configuration](#configuration)).
+
+### 5. Run the app
+
+```bash
+streamlit run app.py
+```
+
+Open [http://localhost:8501](http://localhost:8501) in your browser.
 
 ---
 
-## Example Usage
+## Configuration
+
+Create a `.env` file in the project root:
+
+```
+GOOGLE_API_KEY=your_google_api_key_here
+LANGCHAIN_TRACING_V2=true
+LANGCHAIN_ENDPOINT=https://api.smith.langchain.com
+LANGCHAIN_API_KEY=your_langsmith_api_key_here
+LANGCHAIN_PROJECT=lumina-chatbot
+```
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `GOOGLE_API_KEY` | ✅ Yes | Gemini API key from [Google AI Studio](https://aistudio.google.com) |
+| `LANGCHAIN_API_KEY` | ⚠️ Optional | LangSmith key from [smith.langchain.com](https://smith.langchain.com) |
+| `LANGCHAIN_TRACING_V2` | ⚠️ Optional | Set `false` to disable tracing |
+| `LANGCHAIN_PROJECT` | ⚠️ Optional | LangSmith project name (default: `lumina-chatbot`) |
+
+---
+
+## LangSmith Tracing
+
+Every chatbot invocation is traced with thread-level metadata so you can isolate and debug individual conversations:
 
 ```python
-from langchain_core.messages import HumanMessage
-
-config = {
-    "configurable": {
-        "thread_id": "1"
+{
+    "run_name": "[Thread Title]",
+    "tags": [
+        "thread:uuid-xxxx",        # filter by exact thread
+        "title:Python questions",  # filter by thread name
+        "lumina-chatbot",          # filter all project runs
+    ],
+    "metadata": {
+        "thread_id":    "uuid-xxxx",
+        "thread_title": "Python questions"
     }
 }
+```
 
-response = chatbot.invoke(
-    {
-        "messages": [
-            HumanMessage(content="Hello")
-        ]
-    },
-    config=config
-)
+**On the LangSmith dashboard you can:**
+- Filter runs by thread ID or title using tags
+- See full tool call chains (model → tool → model)
+- Inspect token usage and latency per step
+- Debug errors with full stack traces
 
-print(response["messages"][-1].content)
+---
+
+## Graph Flow
+
+```
+User Message
+     │
+     ▼
+┌─────────────┐     tool_calls present?     ┌──────────────┐
+│  model node │ ──────────── YES ─────────► │  tools node  │
+│  (Gemini)   │                             │  (ToolNode)  │
+└─────────────┘                             └──────┬───────┘
+     │                                             │
+     │ NO (plain text response)                    │ ToolMessage
+     ▼                                             ▼
+    END                                      back to model
+                                          (synthesize answer)
+```
+
+The agent supports **multi-step tool chaining** — for example:
+
+```
+User: "Search for AAPL news and also tell me current price"
+  → news_search("AAPL")     [tool call 1]
+  → get_stock_price("AAPL") [tool call 2]
+  → Final answer combining both results
 ```
 
 ---
 
-## Core Components
+## Tech Stack
 
-### Chat State
+| Layer | Technology |
+|-------|-----------|
+| LLM | Google Gemini 2.0 Flash |
+| Agent Framework | LangGraph |
+| Memory / Persistence | LangGraph `SqliteSaver` |
+| Observability | LangSmith |
+| Frontend | Streamlit |
+| Web Search | DuckDuckGo (`duckduckgo-search`) |
+| Stock Data | Yahoo Finance (`yfinance`) |
+| Weather Data | Open-Meteo API + Nominatim Geocoding |
+| Math Engine | Python `math` module (sandboxed `eval`) |
+| Environment | `python-dotenv` |
 
-Maintains the conversation history.
+---
 
+## Known Issues & Fixes
+
+### `AttributeError: 'list' object has no attribute 'split'`
+
+**Cause:** Gemini returns `AIMessage.content` as a `list` of content blocks (instead of a plain string) after tool calls.
+
+**Fix applied in `app.py`:**
 ```python
-class ChatState(TypedDict):
-    messages: Annotated[list[BaseMessage], add_messages]
-```
-
-### Chat Node
-
-Processes messages through Gemini and returns a response.
-
-```python
-def chat_node(state):
-    response = llm.invoke(state["messages"])
-    return {"messages": [response]}
-```
-
-### Checkpointer
-
-Stores conversation state across graph executions.
-
-```python
-checkpointer = InMemorySaver()
+content = response["messages"][-1].content
+if isinstance(content, list):
+    text = " ".join(
+        part["text"] for part in content
+        if isinstance(part, dict) and part.get("type") == "text"
+    ).strip()
+    return text if text else "I couldn't generate a response."
+return str(content) if content else "I couldn't generate a response."
 ```
 
 ---
 
-## Future Improvements
+## Example Queries
 
-* Streamlit UI
-* Multi-user chat sessions
-* Persistent database-backed memory
-* RAG (Retrieval-Augmented Generation)
-* Tool Calling
-* Function Calling
-* Agentic Workflows
-* Conversation Analytics
-* Authentication & Authorization
-* Docker Deployment
-
----
-
-## Performance Considerations
-
-* Lightweight graph execution
-* Memory-efficient state management
-* Easy migration to persistent storage backends
-* Scalable architecture for production environments
-
----
-
-## Contributing
-
-Contributions are welcome.
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Open a pull request
-
----
-
-## License
-
-This project is licensed under the MIT License.
-
----
-
-## Author
-
-Narottam Kumar
-
-B.Tech, Computer Science & Engineering
-
-Madan Mohan Malaviya University of Technology
+```
+🧮  "2^32 + sqrt(144) kya hoga?"
+📈  "Tesla stock price kya hai aaj?"
+📊  "AAPL aur MSFT compare karo"
+🌤️  "Mumbai mein aaj mausam kaisa hai?"
+📅  "Delhi ka 7 din ka forecast batao"
+🔍  "Latest developments in AI agents"
+📰  "Today's top tech news"
+🌍  "Compare weather in Dubai, London, and Tokyo"
+```
