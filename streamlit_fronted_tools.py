@@ -287,6 +287,35 @@ st.markdown(
         to   { opacity: 1; transform: translateY(0); }
     }
 
+    /* ── Tool usage chips ── */
+    .tool-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        margin: 0.3rem 0 0.6rem 0;
+        animation: fadeIn 0.4s ease;
+    }
+    .tool-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        background: linear-gradient(135deg, rgba(201,116,138,0.18), rgba(201,169,110,0.12));
+        border: 1px solid rgba(201,169,110,0.35);
+        border-radius: 999px;
+        padding: 0.3rem 0.8rem;
+        font-family: 'Raleway', sans-serif;
+        font-size: 0.78rem;
+        font-style: italic;
+        color: var(--gold-light);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+        animation: pulseGlow 1.6s ease-in-out infinite;
+    }
+
+    @keyframes pulseGlow {
+        0%, 100% { box-shadow: 0 2px 8px rgba(0,0,0,0.25); opacity: 0.85; }
+        50%      { box-shadow: 0 2px 16px rgba(201,169,110,0.35); opacity: 1; }
+    }
+
     /* Hide Streamlit chrome */
     #MainMenu, footer, header { visibility: hidden; }
     </style>
@@ -381,21 +410,96 @@ def remove_thread(tid: str) -> None:
         st.rerun()
 
 
-def get_bot_response(user_input: str) -> str:
-    response = chatbot.invoke(
-        {"messages": [HumanMessage(content=user_input)]},
-        config=get_config(),
-    )
-    content = response["messages"][-1].content
-    # Gemini sometimes returns a list of content blocks after tool calls
-    # Extract plain text from whatever format comes back
+# Friendly display names + icons for each tool
+TOOL_DISPLAY = {
+    "calculator":          ("🧮", "Calculating"),
+    "web_search":          ("🔍", "Searching the web"),
+    "news_search":         ("📰", "Fetching latest news"),
+    "get_stock_price":     ("📈", "Checking stock price"),
+    "get_stock_history":   ("📊", "Pulling stock history"),
+    "compare_stocks":      ("📉", "Comparing stocks"),
+    "get_current_weather": ("🌤️", "Checking the weather"),
+    "get_weather_forecast":("📅", "Fetching forecast"),
+    "compare_weather":     ("🌍", "Comparing weather"),
+}
+
+
+def _extract_text(content) -> str:
+    """Extract plain text from AIMessage.content (str or list of blocks)."""
     if isinstance(content, list):
         text = " ".join(
             part["text"] for part in content
             if isinstance(part, dict) and part.get("type") == "text"
         ).strip()
-        return text if text else "I couldn't generate a response."
-    return str(content) if content else "I couldn't generate a response."
+        return text
+    return str(content) if content else ""
+
+
+def get_bot_response_with_tools(user_input: str, status_placeholder) -> str:
+    """
+    Stream the LangGraph execution. Whenever the model node emits tool calls,
+    show a chip in `status_placeholder` for each tool being used.
+    Returns the final assistant text.
+    """
+    used_tools = []
+    final_text = ""
+
+    for step in chatbot.stream(
+        {"messages": [HumanMessage(content=user_input)]},
+        config=get_config(),
+        stream_mode="updates",
+    ):
+        for node_name, node_output in step.items():
+            messages = node_output.get("messages", [])
+
+            if node_name == "model":
+                for msg in messages:
+                    # Tool calls requested by the model
+                    tool_calls = getattr(msg, "tool_calls", None)
+                    if tool_calls:
+                        for tc in tool_calls:
+                            tname = tc.get("name", "tool")
+                            icon, label = TOOL_DISPLAY.get(tname, ("🔧", tname))
+                            if tname not in used_tools:
+                                used_tools.append(tname)
+                            _render_tool_chips(status_placeholder, used_tools)
+
+                    # Final text content from the model
+                    text = _extract_text(msg.content)
+                    if text:
+                        final_text = text
+
+            elif node_name == "tools":
+                # Tool results came back — mark chips as done
+                for msg in messages:
+                    pass  # chips already shown; could mark "done" here if desired
+
+    return final_text if final_text else "I couldn't generate a response."
+
+
+def _render_tool_chips(placeholder, tool_names: list[str]) -> None:
+    """Render a row of pill-shaped chips showing tools currently in use."""
+    chips_html = ""
+    for tname in tool_names:
+        icon, label = TOOL_DISPLAY.get(tname, ("🔧", tname))
+        chips_html += (
+            f'<span class="tool-chip">{icon} {label}…</span>'
+        )
+    placeholder.markdown(
+        f'<div class="tool-chips">{chips_html}</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def get_bot_response(user_input: str) -> str:
+    """Non-streaming fallback (kept for compatibility)."""
+    response = chatbot.invoke(
+        {"messages": [HumanMessage(content=user_input)]},
+        config=get_config(),
+    )
+    content = response["messages"][-1].content
+    text = _extract_text(content)
+    return text if text else "I couldn't generate a response."
 
 
 def stream_response(response_text: str) -> None:
@@ -502,11 +606,14 @@ def handle_user_input(user_input: str) -> None:
 
     # Assistant bubble
     with st.chat_message("assistant"):
-        with st.spinner("Weaving a response…"):
-            try:
-                response = get_bot_response(user_input)
-            except Exception as e:
-                response = f"✦ Something went awry: {e}"
+        status_placeholder = st.empty()
+        try:
+            response = get_bot_response_with_tools(user_input, status_placeholder)
+        except Exception as e:
+            response = f"✦ Something went awry: {e}"
+
+        # Clear tool chips before streaming final answer
+        status_placeholder.empty()
         stream_response(response)
 
     st.session_state.thread_messages.append({"role": "assistant", "content": response})
