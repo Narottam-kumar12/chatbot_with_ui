@@ -1,4 +1,4 @@
-#!/Users/narattamkumar/Desktop/chatbot_with_ui/myenv/bin/python3.12
+#!/Users/narattamkumar/Desktop/chatbot_with_ui/myenv/bin/python
 # -*- coding: utf-8 -*-
 import re
 import sys
